@@ -39,6 +39,24 @@ BEGIN
 END;
 $$;
 
+-- Owner's-rights LLM gateway. Restricted caller's-rights sessions (Streamlit) cannot use SNOWFLAKE.CORTEX directly
+-- (no caller grants on shared objects). It only forwards a prompt; the facts in the prompt were built with the
+-- caller's rights, so the model never sees rows the caller cannot see.
+CREATE OR REPLACE PROCEDURE LLM_COMPLETE(MODEL VARCHAR, PROMPT VARCHAR)
+RETURNS VARCHAR LANGUAGE SQL
+COMMENT = 'Claude via AI_COMPLETE for caller-rights apps; approved Claude models only'
+EXECUTE AS OWNER
+AS
+$$
+BEGIN
+  IF (MODEL NOT IN ('claude-sonnet-4-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-4-5')) THEN
+    RETURN 'ERROR: model not approved';
+  END IF;
+  LET out VARCHAR := (SELECT SNOWFLAKE.CORTEX.AI_COMPLETE(:MODEL, :PROMPT));
+  RETURN out;
+END;
+$$;
+
 -- Builds the citable fact set for one document from the semantic view (governed metrics) and the APP views.
 CREATE OR REPLACE PROCEDURE BUILD_FACTS(DOC_TYPE VARCHAR, SUBJECT_ID VARCHAR, AUDIENCE VARCHAR)
 RETURNS VARIANT LANGUAGE PYTHON RUNTIME_VERSION = '3.11' PACKAGES = ('snowflake-snowpark-python')
@@ -242,7 +260,7 @@ KINDS = {
 }
 
 def ask(session, model, prompt):
-    out = session.sql("SELECT AI_COMPLETE(?, ?)", params=[model, prompt]).collect()[0][0]
+    out = session.sql("CALL TRULINE.APP.LLM_COMPLETE(?, ?)", params=[model, prompt]).collect()[0][0]
     try:
         return json.loads(out) if out.startswith('"') else out
     except Exception:
