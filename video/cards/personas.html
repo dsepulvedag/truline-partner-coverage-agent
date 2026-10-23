@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Truline personas</title><link rel="stylesheet" href="card.css">
+<style>
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 44px; }
+.p { border: 1px solid var(--line); border-radius: 14px; padding: 26px; background: #0f2034; }
+.user { font-family: Menlo, monospace; color: var(--snow); font-size: 20px; }
+.role { color: var(--muted); font-size: 18px; margin-top: 4px; }
+.big { font-size: 46px; font-weight: 700; margin-top: 18px; }
+.small { color: var(--muted); font-size: 19px; }
+.mask { margin-top: 14px; font-size: 18px; }
+.mask b { color: var(--clay); }
+.p:nth-child(1) { animation-delay: .2s; } .p:nth-child(2) { animation-delay: .9s; } .p:nth-child(3) { animation-delay: 1.6s; }
+</style></head>
+<body><div class="wrap">
+  <div class="eyebrow fade">Same app · same query · three Snowflake users</div>
+  <h1 class="fade" style="font-size:48px;animation-delay:.1s">Row access and masking policies decide what each one sees</h1>
+  <div class="grid">
+    <div class="p fade"><div class="user">NOAH_SHELBY</div><div class="role">Shared PAM</div>
+      <div class="big">19 <span class="small">of 500 partners</span></div><div class="small">7,873 customers</div>
+      <div class="mask">Churn risk: visible</div></div>
+    <div class="p fade"><div class="user">FATIMA_HAYES</div><div class="role">Dedicated PAM</div>
+      <div class="big">1 <span class="small">of 500 partners</span></div><div class="small">6,390 customers</div>
+      <div class="mask">Churn risk: visible</div></div>
+    <div class="p fade"><div class="user">VERTEX_PARTNER</div><div class="role">Long-tail partner</div>
+      <div class="big">1 <span class="small">of 500 partners</span></div><div class="small">190 customers</div>
+      <div class="mask">Churn risk: <b>masked</b></div></div>
+  </div>
+  <div class="foot">Results from Snowflake policy simulation (EXECUTE USING POLICY_CONTEXT) on TRULINE.APP views</div>
+</div></body></html>

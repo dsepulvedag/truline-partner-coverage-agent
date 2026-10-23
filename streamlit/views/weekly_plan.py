@@ -5,7 +5,7 @@ import re
 import pandas as pd
 import streamlit as st
 
-from common import SV, call, cite, evidence, identity_badge, me, pct, query, usd
+from common import SV, call, cite, evidence, identity_badge, latest_doc, me, pct, query, usd
 
 MODEL = "claude-sonnet-4-5"
 
@@ -61,7 +61,7 @@ if st.button("Run this week's plan", icon=":material/play_arrow:", type="primary
             st.write(f"Claim check: **{doc['status']}** ({cited} facts cited, attempt {doc['attempts']}).")
             status.update(label=f"Plan ready · claim check {doc['status']}", state="complete", expanded=False)
 
-doc = st.session_state.get(plan_key)
+doc = st.session_state.get(plan_key) or latest_doc("PAM_PORTFOLIO", pam_id, "internal")
 if doc and "error" not in doc:
     with st.expander(f"Plan summary · claim check {doc['status']} · {doc['doc_id']}", expanded=True):
         st.markdown(cite(doc["rendered"]))

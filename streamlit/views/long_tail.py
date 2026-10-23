@@ -1,7 +1,7 @@
 """Tier 3: monthly report for a long-tail partner (no PAM). One sample on demand; the same call scales to all 200."""
 import streamlit as st
 
-from common import SV, call, cite, evidence, identity_badge, me, query, usd
+from common import SV, call, cite, evidence, identity_badge, latest_doc, me, query, usd
 
 MODEL = "claude-sonnet-4-5"
 
@@ -37,7 +37,7 @@ if st.button("Generate this month's report", icon=":material/mail:", type="prima
                             tag="long_tail:monthly")
         status.update(label=f"Claim check {reports[pid].get('status', 'error')}", state="complete", expanded=False)
 
-d = reports.get(pid)
+d = reports.get(pid) or latest_doc("PARTNER_MONTHLY", pid, "partner")
 if d:
     if "error" in d:
         st.error(d["error"])

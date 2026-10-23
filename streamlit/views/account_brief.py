@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-from common import SV, call, cite, evidence, identity_badge, pct, query, run_agent, usd
+from common import SV, call, cite, evidence, identity_badge, latest_doc, pct, query, run, run_agent, usd
 
 MODEL = "claude-sonnet-4-5"
 
@@ -39,7 +39,8 @@ if st.button("Generate brief and partner review", icon=":material/description:",
             st.write(f"{label.capitalize()}: claim check **{d.get('status', d.get('error'))}**.")
         status.update(label="Both versions ready", state="complete", expanded=False)
 
-internal, partner = docs.get((pid, "internal")), docs.get((pid, "partner"))
+internal = docs.get((pid, "internal")) or latest_doc("PARTNER", pid, "internal")
+partner = docs.get((pid, "partner")) or latest_doc("PARTNER", pid, "partner")
 if internal or partner:
     left, right = st.columns(2, gap="large")
     for col, d, title in ((left, internal, "Internal strategic brief"), (right, partner, "Partner-shareable review")):
@@ -122,5 +123,10 @@ If nothing falls in the window write "No recent signal" and do not use older new
             answer = ""
             status.update(label=f"Agent unavailable: {str(e)[:200]}", state="error")
     st.session_state[f"why_{pid}"] = in_window(answer, date.today() - timedelta(days=183))
-if st.session_state.get(f"why_{pid}"):
-    st.markdown(st.session_state[f"why_{pid}"].replace("$", r"\$"))
+    if st.session_state[f"why_{pid}"]:
+        run("""INSERT INTO TRULINE.CORE.DOCUMENTS (DOC_ID, DOC_TYPE, SUBJECT_ID, AUDIENCE, RENDERED, CHECK_STATUS)
+               SELECT 'W-' || LEFT(UUID_STRING(), 10), 'WHY_NOW', ?, 'internal', ?, 'SOURCED'""",
+            (pid, st.session_state[f"why_{pid}"]), tag="brief:why_now")
+why = st.session_state.get(f"why_{pid}") or (latest_doc("WHY_NOW", pid, "internal", ("SOURCED",)) or {}).get("rendered")
+if why:
+    st.markdown(why.replace("$", r"\$"))

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice-over karaoke</title>
+<style>
+:root { --bg: #0e1116; --panel: #171b22; --ink: #eef2f6; --muted: #8a96a3; --hi: #29b5e8; --done: #c9d3dd; --rec: #e5484d; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+video { width: 100%; border-radius: 10px; background: #000; display: block; }
+.bar { height: 6px; background: #252b35; border-radius: 3px; margin: 10px 0 4px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--hi); }
+.meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+.lyrics { background: var(--panel); border-radius: 10px; padding: 18px 22px; margin-top: 14px; min-height: 170px; }
+.now { font-size: 30px; line-height: 1.35; font-weight: 600; }
+.now .w { color: #5d6875; transition: color .08s; }
+.now .w.on { color: var(--ink); }
+.now .w.cur { color: var(--hi); }
+.next { color: var(--muted); font-size: 18px; margin-top: 14px; }
+.countdown { font-size: 64px; font-weight: 700; color: var(--hi); text-align: center; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+button, a.btn { background: #252b35; color: var(--ink); border: 1px solid #34404e; border-radius: 8px; padding: 10px 16px;
+  font-size: 15px; cursor: pointer; text-decoration: none; }
+button.primary { background: var(--hi); color: #04212e; border-color: var(--hi); font-weight: 600; }
+button:disabled { opacity: .45; cursor: default; }
+.rec { color: var(--rec); font-weight: 600; display: none; }
+.rec.on { display: inline; }
+label { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.note { color: var(--muted); font-size: 13px; margin-top: 12px; line-height: 1.5; }
+.err { color: var(--rec); }
+</style></head>
+<body><main>
+  <h1>Truline demo · voice-over</h1>
+  <video id="v" src="demo.mp4" playsinline muted preload="auto"></video>
+  <div class="bar"><div id="prog"></div></div>
+  <div class="meta"><span id="shot">Shot –</span><span id="clock">0.0 / 0.0 s</span></div>
+  <div class="lyrics" id="lyrics"><div class="now" id="now">Press <b>Rehearse</b> to read along silently, or <b>Record take</b> when ready.</div>
+    <div class="next" id="next"></div></div>
+  <div class="controls">
+    <button id="rehearse">Rehearse</button>
+    <button id="record" class="primary">Record take</button>
+    <button id="stop" disabled>Stop</button>
+    <label><input type="checkbox" id="lead" checked> 3-second countdown</label>
+    <span class="rec" id="recdot">● REC</span>
+  </div>
+  <div class="controls" id="result" hidden>
+    <audio id="playback" controls></audio>
+    <button id="preview">Preview with video</button>
+    <a class="btn" id="download" download="voice.webm">Download voice.webm</a>
+  </div>
+  <p class="note">Words light up at a steady pace across each shot, so read at an even speed; it's a guide, not a strict sync.
+    After downloading <code>voice.webm</code> into <code>video/out/</code>, run <code>python video/merge_voice.py</code>
+    to get <code>demo_with_voice.mp4</code>. Use headphones so the preview isn't picked up by the mic.</p>
+  <p class="note err" id="err"></p>
+</main>
+<script>
+const v = document.getElementById("v"), now = document.getElementById("now"), next = document.getElementById("next");
+const prog = document.getElementById("prog"), clock = document.getElementById("clock"), shotEl = document.getElementById("shot");
+const err = document.getElementById("err");
+let timeline = null, recorder = null, chunks = [], stream = null, mode = null, lastShot = -1, words = [];
+
+fetch("timeline.json").then(r => r.json()).then(t => { timeline = t; }).catch(() => {
+  err.textContent = "Couldn't load timeline.json. Serve this folder over http (python -m http.server) after recording.";
+});
+
+function shotAt(t) { return timeline.shots.findIndex(s => t >= s.start && t < s.end); }
+
+function renderShot(i) {
+  const s = timeline.shots[i];
+  words = s.text.split(/\s+/);
+  now.innerHTML = words.map(w => `<span class="w">${w}</span>`).join(" ");
+  next.textContent = timeline.shots[i + 1] ? "Next: " + timeline.shots[i + 1].text : "Last line.";
+  shotEl.textContent = `Shot ${i + 1} of ${timeline.shots.length} · ${s.id}`;
+}
+
+function tick() {
+  if (!timeline) return;
+  const t = v.currentTime, i = shotAt(t);
+  prog.style.width = (100 * t / timeline.duration) + "%";
+  clock.textContent = `${t.toFixed(1)} / ${timeline.duration.toFixed(1)} s`;
+  if (i >= 0) {
+    if (i !== lastShot) { renderShot(i); lastShot = i; }
+    const s = timeline.shots[i], k = Math.floor((t - s.start) / (s.end - s.start) * words.length);
+    now.querySelectorAll(".w").forEach((el, j) => { el.className = "w" + (j < k ? " on" : j === k ? " cur" : ""); });
+  }
+  if (!v.paused) requestAnimationFrame(tick);
+}
+
+async function countdown() {
+  if (!document.getElementById("lead").checked) return;
+  next.textContent = "";
+  for (const n of [3, 2, 1]) { now.innerHTML = `<div class="countdown">${n}</div>`; await new Promise(r => setTimeout(r, 1000)); }
+}
+
+async function start(rec) {
+  if (!timeline) return;
+  err.textContent = "";
+  mode = rec ? "record" : "rehearse";
+  document.getElementById("result").hidden = true;
+  if (rec) {
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch (e) { err.textContent = "Microphone permission is needed to record: " + e.message; return; }
+    chunks = [];
+    recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "" });
+    recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+    recorder.onstop = finish;
+  }
+  document.getElementById("record").disabled = document.getElementById("rehearse").disabled = true;
+  document.getElementById("stop").disabled = false;
+  v.currentTime = 0; lastShot = -1;
+  await countdown();
+  if (rec) { recorder.start(); document.getElementById("recdot").classList.add("on"); }
+  await v.play();
+  requestAnimationFrame(tick);
+}
+
+function stop() {
+  v.pause();
+  if (recorder && recorder.state === "recording") recorder.stop();
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  document.getElementById("recdot").classList.remove("on");
+  document.getElementById("record").disabled = document.getElementById("rehearse").disabled = false;
+  document.getElementById("stop").disabled = true;
+}
+
+function finish() {
+  const blob = new Blob(chunks, { type: "audio/webm" }), url = URL.createObjectURL(blob);
+  document.getElementById("playback").src = url;
+  document.getElementById("download").href = url;
+  document.getElementById("result").hidden = false;
+}
+
+document.getElementById("rehearse").onclick = () => start(false);
+document.getElementById("record").onclick = () => start(true);
+document.getElementById("stop").onclick = stop;
+document.getElementById("preview").onclick = () => {
+  const a = document.getElementById("playback"); v.currentTime = 0; a.currentTime = 0; v.play(); a.play(); requestAnimationFrame(tick);
+};
+v.addEventListener("ended", stop);
+</script>
+</body></html>

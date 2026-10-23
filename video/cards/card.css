@@ -1,0 +1,13 @@
+:root { --bg: #0b1726; --ink: #f4f7fb; --muted: #9fb3c8; --snow: #29b5e8; --clay: #d97757; --line: #22344a; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1280px; height: 720px; background: var(--bg); color: var(--ink);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+.wrap { padding: 72px 96px; height: 100%; display: flex; flex-direction: column; }
+.eyebrow { color: var(--snow); font-size: 22px; letter-spacing: .08em; text-transform: uppercase; }
+h1 { font-size: 64px; font-weight: 700; line-height: 1.1; margin-top: 14px; }
+.sub { color: var(--muted); font-size: 28px; margin-top: 16px; }
+.fade { opacity: 0; animation: in .6s ease forwards; }
+@keyframes in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.foot { margin-top: auto; color: var(--muted); font-size: 20px; display: flex; gap: 14px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--snow); display: inline-block; }
+.dot.clay { background: var(--clay); }

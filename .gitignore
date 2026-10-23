@@ -5,3 +5,6 @@ connections.toml
 __pycache__/
 .venv/
 data_gen/sample_1k/
+
+# demo video build output
+video/out/

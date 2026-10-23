@@ -110,3 +110,17 @@ def run_agent(messages, status):
         elif event == "error":
             raise RuntimeError(data.get("message", str(data)))
     return "".join(text).strip(), tables
+
+
+def latest_doc(doc_type, subject_id, audience, statuses=("PASS", "PASS_WITH_WARNINGS")):
+    """Most recent saved document of this kind for the viewer (RAP_OWN_ROWS), shaped like GENERATE_DOC's result."""
+    marks = ", ".join("?" * len(statuses))
+    df = run(f"""SELECT DOC_ID, CHECK_STATUS, RENDERED, CREATED_AT FROM TRULINE.APP.DOCUMENTS
+                 WHERE DOC_TYPE = ? AND SUBJECT_ID = ? AND AUDIENCE = ? AND CHECK_STATUS IN ({marks}) AND RENDERED IS NOT NULL
+                 ORDER BY CREATED_AT DESC LIMIT 1""", (doc_type, subject_id, audience, *statuses))
+    if df is None or df.empty:
+        return None
+    r = df.iloc[0]
+    facts = run("""SELECT FACT_ID, LABEL, INTERNAL_ONLY FROM TRULINE.APP.DOC_FACTS WHERE DOC_ID = ?""", (r["DOC_ID"],))
+    return {"doc_id": r["DOC_ID"], "status": r["CHECK_STATUS"], "rendered": r["RENDERED"], "saved_at": r["CREATED_AT"],
+            "facts": [{"id": f.FACT_ID, "label": f.LABEL, "internal_only": bool(f.INTERNAL_ONLY)} for f in facts.itertuples()]}
