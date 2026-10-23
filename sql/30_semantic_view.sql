@@ -74,6 +74,10 @@ CREATE OR REPLACE SEMANTIC VIEW TRULINE.APP.TRULINE_COVERAGE
     plays.play_type AS PLAY_TYPE,
     plays.routed_to AS ROUTED_TO,
     plays.escalation_reason AS ESCALATION_REASON,
+    plays.partner_needs_intervention AS PARTNER_NEEDS_INTERVENTION
+      WITH SYNONYMS = ('needs intervention', 'needs the PAM', 'partners that need me')
+      COMMENT = 'TRUE when the partner''s NRR is below 95% or more than 20% of its ARR is At Risk/Critical. This is THE definition of a partner needing PAM intervention.',
+    plays.rep_over_cap AS REP_OVER_CAP COMMENT = 'TRUE when the owner rep has more than 5 plays this week',
     plays.owner_rep_name AS OWNER_REP_NAME,
     subscriptions.product_code AS PRODUCT_CODE,
     subscriptions.subscription_status AS STATUS,
@@ -107,3 +111,8 @@ CREATE OR REPLACE SEMANTIC VIEW TRULINE.APP.TRULINE_COVERAGE
     subscriptions.product_seat_count AS SUM(subscriptions.product_seats) COMMENT = 'Seats by product'
   )
   COMMENT = 'Truline partner coverage: ARR, retention, risk, credits and plays (synthetic data)';
+
+-- Re-apply grants dropped by CREATE OR REPLACE.
+GRANT SELECT ON SEMANTIC VIEW TRULINE.APP.TRULINE_COVERAGE TO ROLE TRULINE_PAM;
+GRANT SELECT ON SEMANTIC VIEW TRULINE.APP.TRULINE_COVERAGE TO ROLE TRULINE_PARTNER;
+GRANT SELECT ON SEMANTIC VIEW TRULINE.APP.TRULINE_COVERAGE TO ROLE TRULINE_OPS;
