@@ -1,12 +1,44 @@
 {
  "shots": [
-  {"id": "title", "seconds": 10, "text": "Truline sells through 500 partners. Even with 64 partner account managers, coverage is never enough: only 50 partners get a dedicated one, 250 share one, and 200 get nobody. We're changing that."},
-  {"id": "plan", "seconds": 15, "text": "One governed engine on Snowflake, with Claude doing more as coverage thins. Noah covers 19 partners. The agent ranks 279 plays worth $24.3 million, routes each to the owner rep, escalates the big ones, and one click approves and logs them."},
-  {"id": "brief", "seconds": 7, "text": "For Fatima's top partner, Claude writes the internal brief and the partner version. Every number cites the semantic view; internal facts never reach the partner."},
-  {"id": "why", "seconds": 6, "text": "Then it checks the news against our plays: growth says push, headwinds say pull back."},
-  {"id": "tail", "seconds": 5, "text": "The 200 partners nobody covers get a monthly report, written by Claude and claim-checked."},
-  {"id": "personas", "seconds": 4, "text": "Each persona is a real Snowflake user, so policies decide what they see."},
-  {"id": "audit", "seconds": 5, "text": "A made-up 4.7 million? Blocked and logged."},
-  {"id": "close", "seconds": 5, "text": "Every number sourced, every action audited, every partner in reach."}
+  {
+   "id": "title",
+   "seconds": 10,
+   "text": "Truline sells through 500 partners with 64 account managers. Only 50 get a dedicated one, and 200 get nobody. We're changing that."
+  },
+  {
+   "id": "plan",
+   "seconds": 15,
+   "text": "One governed engine on Snowflake, with Claude doing the work. Noah covers 19 partners: the agent ranks 279 plays, routes each to the right rep, and one click approves and logs them."
+  },
+  {
+   "id": "brief",
+   "seconds": 7,
+   "text": "Claude writes the internal brief and the partner version, every number cited."
+  },
+  {
+   "id": "why",
+   "seconds": 6,
+   "text": "Then it checks the news against each play."
+  },
+  {
+   "id": "tail",
+   "seconds": 5,
+   "text": "Partners nobody covers get a monthly report."
+  },
+  {
+   "id": "personas",
+   "seconds": 4,
+   "text": "Each user sees only their own data."
+  },
+  {
+   "id": "audit",
+   "seconds": 5,
+   "text": "A made-up number? Blocked and logged."
+  },
+  {
+   "id": "close",
+   "seconds": 5,
+   "text": "Every number sourced, every action audited."
+  }
  ]
 }
