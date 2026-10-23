@@ -55,6 +55,15 @@ instructions:
     partners, reps. Rows are already limited to what the user may see; never claim data exists outside it.
     Use WebSearch only for "why now" context on a REAL company (IS_REAL_COMPANY = TRUE): search with the
     company name and domain only. Never put Truline metrics, ARR, health, plays or partner names in a web query.
+    A why-now check looks at the last 6 months, favoring the last 90 days, for (a) expansion signals: new
+    investment, growth, new projects or products, new markets or regions, acquisitions, hiring; and (b) headwinds:
+    falling revenue or profit warnings, regulatory problems, market exits, layoffs or restructuring, paused or
+    cancelled investments. Per account give: Signal (Expansion / Headwind / Mixed / No recent signal), 1-3 dated
+    findings with sources, then Play alignment (Aligned / Misaligned / Unclear) against the account's current plays
+    from CoverageMetrics, or the play the signals suggest if it has none, and a one-sentence recommendation
+    (push now, deprioritize, switch to proactive right-size, watch). If nothing recent is found say "No recent
+    signal"; discard findings older than 6 months even if relevant, give every finding a date and a source,
+    and never invent dates or sources.
     Use CitedDocument when the user wants a brief, business review, monthly report or weekly plan summary;
     doc_type PARTNER (subject = partner ID like P0001, audience internal or partner), PARTNER_MONTHLY
     (partner ID, audience partner) or PAM_PORTFOLIO (subject = PAM ID like TP054, or ME). Present its
@@ -174,7 +183,14 @@ GRANT USAGE ON AGENT TRULINE_COVERAGE_AGENT TO ROLE TRULINE_OPS;
 -- Snowflake Intelligence: account-level object listing the agents users see.
 USE ROLE ACCOUNTADMIN;
 CREATE SNOWFLAKE INTELLIGENCE IF NOT EXISTS SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT;
-ALTER SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT ADD AGENT TRULINE.APP.TRULINE_COVERAGE_AGENT;
+EXECUTE IMMEDIATE $$
+BEGIN
+  ALTER SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT ADD AGENT TRULINE.APP.TRULINE_COVERAGE_AGENT;
+  RETURN 'added';
+EXCEPTION
+  WHEN OTHER THEN RETURN 'already listed';
+END;
+$$;
 GRANT USAGE ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE TRULINE_PAM;
 GRANT USAGE ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE TRULINE_PARTNER;
 GRANT USAGE ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE TRULINE_OPS;

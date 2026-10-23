@@ -1,5 +1,6 @@
 """Tier 1: strategic partner brief (internal) and partner business review (partner-shareable), side by side."""
 import re
+from datetime import date, timedelta
 
 import streamlit as st
 
@@ -61,14 +62,58 @@ if internal or partner:
 
 st.divider()
 st.subheader("Why now")
-st.caption("The agent searches the web for the partner's largest real-company accounts using company name and domain only; "
-           "no Truline metrics leave Snowflake.")
+st.caption("The agent checks recent news (last 6 months, favoring the last 90 days) for the partner's 2 largest real-company "
+           "accounts with a play this week and the 2 largest without one: expansion signals vs headwinds, and whether "
+           "our play fits. Web searches use company name and domain only; no Truline data leaves Snowflake.")
+MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+
+
+def in_window(text, cutoff):
+    """Drop dated bullets ('- Feb 2026: ...') older than the cutoff month; the model sometimes ignores the window."""
+    keep = []
+    for line in text.splitlines():
+        m = re.match(r"\s*[-*]\s*([A-Za-z]{3})[a-z]*\.?\s+(\d{4})\b", line)
+        if m and m.group(1).lower() in MONTHS and (int(m.group(2)), MONTHS[m.group(1).lower()]) < (cutoff.year, cutoff.month):
+            continue
+        keep.append(line)
+    return "\n".join(keep)
+
+
 if st.button("Find why-now signals", icon=":material/travel_explore:"):
-    top = query("""SELECT ACCOUNT_NAME, DOMAIN FROM TRULINE.APP.ACCOUNTS
-                   WHERE PARTNER_ID = ? AND IS_REAL_COMPANY AND STATUS = 'Active' ORDER BY ARR_NOW DESC LIMIT 3""", (pid,))
-    names = ", ".join(f"{r.ACCOUNT_NAME} ({r.DOMAIN})" for r in top.itertuples())
-    q = (f"For partner {pid}, give a short 'why now' for each of these real customer accounts: {names}. "
-         "Use web search with the company name and domain only. Then name the matching plays (play type, value, owner rep).")
+    accts = query("""
+        WITH p AS (SELECT ACCOUNT_ID, LISTAGG(PLAY_TYPE || ' (expected ' || TO_VARCHAR(ROUND(VALUE_USD / 1000)) || 'K, owner '
+                                       || OWNER_REP_NAME || ')', '; ') WITHIN GROUP (ORDER BY VALUE_USD DESC) AS PLAYS
+                   FROM TRULINE.APP.PLAY_CANDIDATES WHERE PARTNER_ID = ? GROUP BY 1),
+        a AS (SELECT a.ACCOUNT_NAME, a.DOMAIN, a.ARR_NOW, p.PLAYS, p.PLAYS IS NOT NULL AS HAS_PLAY
+              FROM TRULINE.APP.ACCOUNTS a LEFT JOIN p ON p.ACCOUNT_ID = a.ACCOUNT_ID
+              WHERE a.PARTNER_ID = ? AND a.IS_REAL_COMPANY AND a.STATUS = 'Active')
+        SELECT * FROM a QUALIFY ROW_NUMBER() OVER (PARTITION BY HAS_PLAY ORDER BY ARR_NOW DESC) <= 2
+        ORDER BY HAS_PLAY DESC, ARR_NOW DESC""", (pid, pid))
+    with_play = "\n".join(f"- {r.ACCOUNT_NAME} ({r.DOMAIN}): our play this week: {r.PLAYS}"
+                          for r in accts.itertuples() if r.HAS_PLAY) or "- none"
+    without = "\n".join(f"- {r.ACCOUNT_NAME} ({r.DOMAIN})" for r in accts.itertuples() if not r.HAS_PLAY) or "- none"
+    today = date.today()
+    q = f"""Why-now check for partner {pid}. Today is {today:%B %d, %Y}.
+For each account below, use WebSearch with ONLY the company name and domain (never any Truline data).
+Only use developments dated ON OR AFTER {today - timedelta(days=183):%B %d, %Y} (6 months); prefer ones after
+{today - timedelta(days=90):%B %d, %Y}. Discard anything older, even if it is relevant. Look for:
+- Expansion signals: new investment, growth, new projects or products, new markets or regions, acquisitions, hiring.
+- Headwind signals: falling revenue or profit warnings, regulatory problems, market exits, layoffs or restructuring, paused or cancelled investments.
+
+Accounts WITH a play this week:
+{with_play}
+
+Accounts WITHOUT a play this week:
+{without}
+
+For each account write:
+### <account name>
+**Signal:** Expansion / Headwind / Mixed / No recent signal
+- <Mon YYYY>: <finding> (<publisher>)   (1-3 bullets; every bullet MUST have a date inside the window and a source)
+For accounts with a play: **Play alignment:** Aligned / Misaligned / Unclear, one sentence on why.
+For accounts without a play: **Opportunity:** the play the signals suggest (expansion, renewal rescue, right-size) or none.
+**Recommendation:** one sentence (e.g. push now, deprioritize, switch to proactive right-size, watch).
+If nothing falls in the window write "No recent signal" and do not use older news. Never invent dates or sources."""
     with st.status("Agent researching…", expanded=False) as status:
         try:
             answer, _ = run_agent([{"role": "user", "content": [{"type": "text", "text": q}]}], status)
@@ -76,6 +121,6 @@ if st.button("Find why-now signals", icon=":material/travel_explore:"):
         except Exception as e:  # noqa: BLE001
             answer = ""
             status.update(label=f"Agent unavailable: {str(e)[:200]}", state="error")
-    st.session_state[f"why_{pid}"] = answer
+    st.session_state[f"why_{pid}"] = in_window(answer, date.today() - timedelta(days=183))
 if st.session_state.get(f"why_{pid}"):
     st.markdown(st.session_state[f"why_{pid}"].replace("$", r"\$"))
