@@ -47,13 +47,14 @@ Semantic view · Cortex Analyst (via agent) · Cortex Agent with Claude orchestr
 | Path | What |
 |---|---|
 | `data_gen/` | Synthetic data generator (Snowflake notebook + `run_snowflake.py`); real names from the People Data Labs free company dataset (Marketplace) |
-| `sql/10_core.sql` … `70_agent.sql` | Core, governed app layer, semantic view, procedures, personas, Streamlit, agent (run in order) |
+| `sql/00_account.sql` … `70_agent.sql` | Account settings, core, governed app layer, semantic view, procedures, personas, Streamlit, agent (run in order) |
 | `sql/playground.sql` | Worksheet to try everything in Snowsight |
 | `streamlit/` | Workbench app; deploy with `scripts/deploy_streamlit.sh` |
 | `docs/demo_video_script.md` | 1-minute demo script |
 
 ## Run it
 
+0. Account settings (ACCOUNTADMIN, once): `snow sql -c <connection> -f sql/00_account.sql` (cross-region inference for Claude, Cortex web search).
 1. Generate data: `uv run --python 3.11 --with "snowflake-snowpark-python[pandas]" --with numpy python data_gen/run_snowflake.py <connection> 300000 --real-names` (needs the People Data Labs listing as `PEOPLE_DATA_LABS`).
 2. `snow sql -c <connection> -f sql/10_core.sql`, then `20_app`, `30_semantic_view`, `40_procs`, `50_personas` (ACCOUNTADMIN), `70_agent`.
 3. `scripts/deploy_streamlit.sh <connection>` (runs `sql/60_streamlit.sql`).
