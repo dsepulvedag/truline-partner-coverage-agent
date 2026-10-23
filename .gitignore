@@ -1,0 +1,6 @@
+.env
+*.p8
+*.pem
+connections.toml
+__pycache__/
+.venv/

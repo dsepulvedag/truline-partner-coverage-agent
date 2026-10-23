@@ -1,0 +1,26 @@
+# Snowflake MCP server (snowflake-labs-mcp) service configuration.
+# Add Cortex Search / Analyst / Agent services here once they exist in the account.
+search_services: []
+analyst_services: []
+agent_services: []
+
+other_services:
+  object_manager: true
+  query_manager: true
+  semantic_manager: true
+
+sql_statement_permissions:
+  - Select: true
+  - Describe: true
+  - Show: true
+  - Use: true
+  - Create: true
+  - Insert: true
+  - Update: true
+  - Merge: true
+  - Alter: true
+  - Command: true
+  - Delete: false
+  - Drop: false
+  - TruncateTable: false
+  - Unknown: false
