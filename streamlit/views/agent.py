@@ -3,14 +3,10 @@
 The request uses the viewer's caller's-rights session token, so the agent's tools run as the viewer and
 row access / masking policies apply to every answer.
 """
-import json
-
-import requests
 import streamlit as st
 
-from common import conn, identity_badge
+from common import identity_badge, run_agent
 
-AGENT = "TRULINE/schemas/APP/agents/TRULINE_COVERAGE_AGENT"
 SAMPLES = ["Which of my partners need me this week, and why?",
            "What are the top 5 plays by expected ARR and who owns them?",
            "Why now for Fidelity Investments? Check the news, then our plays.",
@@ -20,46 +16,6 @@ st.title("Ask the agent")
 identity_badge()
 st.caption("Truline Coverage Agent: Claude orchestrates governed metrics (semantic view), web search "
            "(company name and domain only), cited documents, approvals and the audit log. It answers as you.")
-
-
-def run_agent(messages, status):
-    raw = conn()._instance
-    r = requests.post(f"https://{raw.host}/api/v2/databases/{AGENT}:run",
-                      json={"messages": messages}, stream=True, timeout=300,
-                      headers={"Authorization": f'Snowflake Token="{raw.rest.token}"',
-                               "Accept": "text/event-stream", "Content-Type": "application/json"})
-    if r.status_code != 200:
-        raise RuntimeError(f"HTTP {r.status_code}: {r.text[:300]}")
-    r.encoding = "utf-8"
-    event, text, tables = None, [], []
-    for line in r.iter_lines(decode_unicode=True):
-        if not line:
-            continue
-        if line.startswith("event:"):
-            event = line[6:].strip()
-            continue
-        if not line.startswith("data:"):
-            continue
-        try:
-            data = json.loads(line[5:].strip() or "{}")
-        except json.JSONDecodeError:  # e.g. a bare "[DONE]" marker
-            continue
-        if not isinstance(data, dict):
-            continue
-        if event == "response.text.delta":
-            text.append(data.get("text", ""))
-        elif event == "response.status" and data.get("message"):
-            status.write(data["message"])
-        elif event == "response.tool_use":
-            status.write(f"Tool: `{data.get('name') or data.get('type')}`")
-        elif event == "response.table":
-            rs = data.get("result_set", {})
-            cols = [c["name"] for c in rs.get("resultSetMetaData", {}).get("rowType", [])]
-            if cols:
-                tables.append({"columns": cols, "rows": rs.get("data", [])})
-        elif event == "error":
-            raise RuntimeError(data.get("message", str(data)))
-    return "".join(text).strip(), tables
 
 
 if "agent_chat" not in st.session_state:

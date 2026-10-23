@@ -3,9 +3,11 @@ import json
 import re
 
 import pandas as pd
+import requests
 import streamlit as st
 
 SV = "TRULINE.APP.TRULINE_COVERAGE"
+AGENT = "TRULINE/schemas/APP/agents/TRULINE_COVERAGE_AGENT"
 
 
 def conn():
@@ -67,3 +69,44 @@ def evidence(doc_id):
     st.dataframe(facts, hide_index=True, use_container_width=True,
                  column_config={"FACT_ID": "Fact", "LABEL": "Meaning", "DISPLAY": "Value",
                                 "METRIC": "Governed metric (semantic view)", "SOURCE_OBJECT": "Source", "QUERY_ID": "Query ID"})
+
+
+def run_agent(messages, status):
+    """Call the Cortex Agent REST API as the viewer (caller's-rights session token); returns (text, tables)."""
+    raw = conn()._instance
+    r = requests.post(f"https://{raw.host}/api/v2/databases/{AGENT}:run",
+                      json={"messages": messages}, stream=True, timeout=300,
+                      headers={"Authorization": f'Snowflake Token="{raw.rest.token}"',
+                               "Accept": "text/event-stream", "Content-Type": "application/json"})
+    if r.status_code != 200:
+        raise RuntimeError(f"HTTP {r.status_code}: {r.text[:300]}")
+    r.encoding = "utf-8"
+    event, text, tables = None, [], []
+    for line in r.iter_lines(decode_unicode=True):
+        if not line:
+            continue
+        if line.startswith("event:"):
+            event = line[6:].strip()
+            continue
+        if not line.startswith("data:"):
+            continue
+        try:
+            data = json.loads(line[5:].strip() or "{}")
+        except json.JSONDecodeError:  # e.g. a bare "[DONE]" marker
+            continue
+        if not isinstance(data, dict):
+            continue
+        if event == "response.text.delta":
+            text.append(data.get("text", ""))
+        elif event == "response.status" and data.get("message"):
+            status.write(data["message"])
+        elif event == "response.tool_use":
+            status.write(f"Tool: `{data.get('name') or data.get('type')}`")
+        elif event == "response.table":
+            rs = data.get("result_set", {})
+            cols = [c["name"] for c in rs.get("resultSetMetaData", {}).get("rowType", [])]
+            if cols:
+                tables.append({"columns": cols, "rows": rs.get("data", [])})
+        elif event == "error":
+            raise RuntimeError(data.get("message", str(data)))
+    return "".join(text).strip(), tables
