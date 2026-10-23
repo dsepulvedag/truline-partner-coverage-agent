@@ -4,3 +4,4 @@
 connections.toml
 __pycache__/
 .venv/
+data_gen/sample_1k/
