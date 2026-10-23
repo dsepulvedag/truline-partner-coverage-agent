@@ -38,30 +38,53 @@ N_REAL = round(N_ACCOUNTS * 5_000 / 300_000)   # 5,000 real names at full scale
 print(N_ACCOUNTS, "accounts,", N_REAL, "with real names")'''
 
 real_md = """## 2) Real company names (optional)
-Run **2a** to find the listing's table and columns, adjust `PDL_TABLE` and the column names in **2b** if they differ, then run **2b**. It keeps the largest companies (most recognizable) in design-heavy industries. Skip both if you don't have the listing."""
+Run **2a** to find the listing's table and columns, adjust `PDL_TABLE` and the column names in **2b** if they differ, then run **2b**. It keeps the largest companies (any commercial industry) whose name matches their website. Skip both if you don't have the listing."""
 
 real_a = '''# 2a) Explore the People Data Labs listing (edit LISTING_DB to the name you chose when you clicked "Get")
 LISTING_DB = "PEOPLE_DATA_LABS"
 session.sql(f"SHOW TABLES IN DATABASE {LISTING_DB}").show()
 # After you see the table name, set PDL_TABLE and peek at columns and industry values:
-PDL_TABLE = f"{LISTING_DB}.PUBLIC.FREE_COMPANY_DATASET"   # <- adjust
+PDL_TABLE = f"{LISTING_DB}.PUBLIC.FREECOMPANYDATASET"   # verified Oct 23 2026; adjust if 2a shows otherwise
 session.sql(f"SELECT * FROM {PDL_TABLE} LIMIT 5").show()
 session.sql(f"SELECT industry, COUNT(*) AS n FROM {PDL_TABLE} GROUP BY 1 ORDER BY 2 DESC LIMIT 60").show(60)'''
 
-real_b = '''# 2b) Pick 5,000 recognizable companies -> REAL_COMPANIES_SEED (adjust column names if 2a showed different ones)
+real_b = '''# 2b) Pick 5,000 large, real companies (any commercial industry) -> REAL_COMPANIES_SEED
+# PDL sizes are self-reported, so keep rows whose name matches the website, with complete profiles,
+# no platform pages / sub-sites, and no government, education, religious or non-profit bodies.
+NON_COMMERCIAL = ("government administration", "judiciary", "law enforcement", "military", "legislative office",
+                  "political organization", "religious institutions", "civic & social organization",
+                  "non-profit organization management", "philanthropy", "fund-raising", "think tanks",
+                  "primary/secondary education", "higher education", "education management",
+                  "international affairs", "public policy", "gambling & casinos", "tobacco",
+                  "individual & family services")
+PLATFORMS = ("facebook", "instagram", "linkedin", "youtube", "twitter", "wikipedia", "fiverr", "google",
+             "linktr", "medium", "github", "wordpress", "blogspot", "wix")
+sql_list = lambda xs: ", ".join("'" + x + "'" for x in xs)
 session.sql(f"""
 CREATE OR REPLACE TABLE REAL_COMPANIES_SEED AS
-SELECT name AS NAME, website AS DOMAIN, industry AS INDUSTRY, size AS SIZE_BAND, country AS COUNTRY
-FROM {PDL_TABLE}
-WHERE name IS NOT NULL AND website IS NOT NULL
-  AND size IN ('10001+', '5001-10000', '1001-5000')
-  AND industry IN ('construction', 'architecture & planning', 'civil engineering', 'building materials',
-                   'mechanical or industrial engineering', 'machinery', 'automotive', 'aviation & aerospace',
-                   'industrial automation', 'electrical/electronic manufacturing', 'media production',
-                   'animation', 'entertainment', 'computer games', 'motion pictures and film',
-                   'oil & energy', 'utilities')
-QUALIFY ROW_NUMBER() OVER (PARTITION BY LOWER(name) ORDER BY size) = 1
-ORDER BY CASE size WHEN '10001+' THEN 1 WHEN '5001-10000' THEN 2 ELSE 3 END, RANDOM(7)
+WITH c AS (
+  SELECT INITCAP(name) AS NAME, industry AS INDUSTRY, size AS SIZE_BAND, country AS COUNTRY,
+         SPLIT_PART(REGEXP_REPLACE(LOWER(TRIM(website)), '^(https?://)?(www[.])?', ''), '/', 1) AS DOMAIN,
+         REGEXP_REPLACE(LOWER(name), '[^a-z0-9]', '') AS NM,
+         CASE size WHEN '10001+' THEN 1 WHEN '5001-10000' THEN 2 ELSE 3 END AS SIZE_RANK,
+         IFF(founded IS NOT NULL, 1, 0) + IFF(linkedin_url IS NOT NULL, 1, 0) + IFF(locality IS NOT NULL, 1, 0) AS COMPLETENESS
+  FROM {PDL_TABLE}
+  WHERE name IS NOT NULL AND website IS NOT NULL AND industry IS NOT NULL AND country IS NOT NULL
+    AND size IN ('10001+', '5001-10000', '1001-5000')
+    AND industry NOT IN ({sql_list(NON_COMMERCIAL)})),
+v AS (
+  SELECT c.*, SPLIT_PART(DOMAIN, '.', 1) AS STEM, ARRAY_SIZE(SPLIT(DOMAIN, '.')) AS LABELS FROM c
+  WHERE REGEXP_LIKE(DOMAIN, '^[a-z0-9-]+([.][a-z0-9-]+)*[.][a-z]{{2,}}$')
+    AND NOT REGEXP_LIKE(DOMAIN, '.*[.](gov|mil|edu)([.][a-z]{{2}})?$'))
+SELECT NAME, DOMAIN, INDUSTRY, SIZE_BAND, COUNTRY
+FROM v
+WHERE LENGTH(STEM) >= 3 AND LENGTH(NM) >= 3 AND LENGTH(NAME) <= 40
+  AND (NM = STEM OR STARTSWITH(NM, STEM) OR STARTSWITH(STEM, NM))
+  AND STEM NOT IN ({sql_list(PLATFORMS)})
+  AND (LABELS = 2 OR (LABELS = 3 AND SPLIT_PART(DOMAIN, '.', 2) IN ('co', 'com', 'net', 'org')))
+QUALIFY ROW_NUMBER() OVER (PARTITION BY DOMAIN ORDER BY SIZE_RANK, LENGTH(NAME)) = 1
+    AND ROW_NUMBER() OVER (PARTITION BY LOWER(NAME) ORDER BY SIZE_RANK, LENGTH(DOMAIN)) = 1
+ORDER BY SIZE_RANK, COMPLETENESS DESC, HASH(DOMAIN)
 LIMIT 5000
 """).collect()
 print(session.table("REAL_COMPANIES_SEED").count(), "real companies staged")'''

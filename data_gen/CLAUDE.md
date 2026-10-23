@@ -5,7 +5,7 @@ Hackathon project (Snowflake hackathon sponsored by Anthropic, Oct 23 2026). The
 ## Decisions already made (don't revisit unless asked)
 - **Vendor:** "Truline", fictional design-software company (do NOT use Autodesk names or anything Autodesk-specific). 15 fictional per-seat products in 4 families + "Truline Cloud Credits".
 - **Scale:** 300K customer accounts (5K real names, 295K fictional), 500 fictional reseller partners, 36 months (Oct 2023 – Sep 2026).
-- **Real names:** largest companies in design-heavy industries from the People Data Labs free company dataset on Snowflake Marketplace (notebook cells 2a/2b; table/column names unverified). Fictional accounts get `.example` domains so they never resolve — only research `IS_REAL_COMPANY = TRUE`.
+- **Real names:** largest companies (any industry) from the People Data Labs free company dataset on Snowflake Marketplace (notebook cells 2a/2b; table/column names unverified). Fictional accounts get `.example` domains so they never resolve — only research `IS_REAL_COMPANY = TRUE`.
 - **Grain:** usage per account × product × month; ARR bridge per account × month; health score monthly history (score, band, 2 reason codes, 90-day churn probability).
 - **ARR:** seat ARR = seats × unit price (list − segment discount, ×1.2 monthly term, +3% uplift at renewal).
 - **Consumption:** prepaid annual credit commitment = consumption ARR; usage draws it down; overage billed at list ($1/credit) = revenue, not ARR; unused credits expire at renewal; next commit re-sized on trailing usage; mid-year top-ups when burning ahead of pace. Seat accounts migrate (some/all products) to credits at renewal, rising over time (more in Enterprise); 25% of new logos in the last 18 months start on credits.
